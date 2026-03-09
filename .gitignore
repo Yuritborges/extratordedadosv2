@@ -5,6 +5,7 @@ env/
 # PDFs e dados sensíveis
 DATA/input/
 DATA/output/
+Base_Mestra_FDE.xlsx
 
 # Python
 __pycache__/
