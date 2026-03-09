@@ -1,0 +1,23 @@
+.venv/
+venv/
+env/
+
+# PDFs e dados sensíveis
+DATA/input/
+DATA/output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Excel temporário
+~$*.xlsx
+
+# Sistema
+.DS_Store
+Thumbs.db
+# PyCharm
+.idea/
