@@ -1,17 +1,14 @@
-<<<<<<< HEAD
-=======
 """
 interface.py — COFRE BRASUL v2.0
 =================================
 Sistema de Gestão de Insumos FDE — Brasul Construtora
-Interface profissional integrada ao main.py v7.0
+Interface profissional integrada ao main.py v9.16
 
 Colunas do Cofre_Brasul.xlsx: Obra | Obra_Arq | Tipo | Cod | Desc | UN
 
 DEPENDÊNCIAS:
     pip install customtkinter pandas openpyxl pillow
 """
->>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
 
 import os, sys, threading, shutil, unicodedata
 import pandas as pd
@@ -31,7 +28,7 @@ def resource_path(rel):
     return os.path.join(base, rel)
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  IMPORTA O EXTRATOR (main.py v7.0)
+#  IMPORTA O EXTRATOR (main.py v9.16)
 # ─────────────────────────────────────────────────────────────────────────────
 try:
     from main import processar_pdf, carregar_base, gerar_excel
@@ -53,16 +50,15 @@ BRANCO       = "#FFFFFF"
 FUNDO        = "#F0F2F5"
 CARD_BG      = "#FFFFFF"
 BORDA        = "#E2E5EA"
-AZUL         = "#2563EB"   # ACUMULADO
+AZUL         = "#2563EB"
 AZUL_LITE    = "#EFF6FF"
-VERDE        = "#16A34A"   # QUANTITATIVA
+VERDE        = "#16A34A"
 VERDE_LITE   = "#F0FDF4"
-LILAS        = "#7C3AED"   # AMBOS
+LILAS        = "#7C3AED"
 LILAS_LITE   = "#F5F3FF"
 CINZA_TXT    = "#6B7280"
 CINZA_LINHA  = "#F8FAFC"
 
-# Fontes — definidas como tuplas simples (compatível antes de criar a janela)
 F_TITULO  = ("Segoe UI", 20, "bold")
 F_SECAO   = ("Segoe UI", 13, "bold")
 F_LABEL   = ("Segoe UI", 11)
@@ -95,11 +91,7 @@ class CofreBrasul(ctk.CTk):
         self.caminho_base = os.path.join(self.dir_base, "Base_Mestra_FDE.xlsx")
 
         # Janela
-<<<<<<< HEAD
         self.title("BRASUL — Sistema de Gestão de Insumos Brasul Construtora")
-=======
-        self.title("COFRE BRASUL — Sistema de Gestão de Insumos FDE")
->>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
         self.geometry("1680x920")
         self.minsize(1280, 780)
         self.configure(fg_color=FUNDO)
@@ -140,7 +132,6 @@ class CofreBrasul(ctk.CTk):
         if os.path.exists(self.caminho_xls):
             try:
                 self.df_completo = pd.read_excel(self.caminho_xls).fillna('')
-                # Garante colunas mínimas
                 for col in ['Obra', 'Obra_Arq', 'Tipo', 'Cod', 'Desc', 'UN']:
                     if col not in self.df_completo.columns:
                         self.df_completo[col] = ''
@@ -161,7 +152,6 @@ class CofreBrasul(ctk.CTk):
         self.sidebar.grid_propagate(False)
         self.sidebar.grid_columnconfigure(0, weight=1)
 
-        # Faixa amarela no topo da sidebar
         topo = ctk.CTkFrame(self.sidebar, height=6, fg_color=AMARELO, corner_radius=0)
         topo.pack(fill="x")
 
@@ -169,27 +159,16 @@ class CofreBrasul(ctk.CTk):
         logo_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         logo_frame.pack(padx=24, pady=(28, 6), fill="x")
 
-<<<<<<< HEAD
         caminho_logo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "LOGOTIPOBRASUL.png")
         if os.path.exists(caminho_logo):
             img_raw = Image.open(caminho_logo)
             self.logo_img = ctk.CTkImage(img_raw, size=(210, 98))
-=======
-        caminho_logo = resource_path("LOGOTIPOBRASUL.png")
-        if os.path.exists(caminho_logo):
-            img_raw = Image.open(caminho_logo)
-            self.logo_img = ctk.CTkImage(img_raw, size=(210, 78))
->>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
             ctk.CTkLabel(logo_frame, image=self.logo_img, text="").pack(anchor="w")
         else:
             ctk.CTkLabel(logo_frame, text="BRASUL", font=("Segoe UI", 24, "bold"),
                          text_color=PRETO).pack(anchor="w")
 
-<<<<<<< HEAD
         ctk.CTkLabel(self.sidebar, text="",
-=======
-        ctk.CTkLabel(self.sidebar, text="COFRE DE INSUMOS FDE",
->>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
                      font=ctk.CTkFont(family="Segoe UI", size=9, weight="bold"),
                      text_color=CINZA_TXT).pack(anchor="w", padx=26, pady=(0, 20))
 
@@ -201,10 +180,10 @@ class CofreBrasul(ctk.CTk):
         kpi_container.pack(fill="x", padx=18, pady=18)
         kpi_container.grid_columnconfigure((0, 1), weight=1)
 
-        self.kpi_obras  = self._kpi(kpi_container, "OBRAS",       0, 0)
+        self.kpi_obras  = self._kpi(kpi_container, "OBRAS",        0, 0)
         self.kpi_itens  = self._kpi(kpi_container, "ITENS",        1, 0)
-        self.kpi_acum   = self._kpi(kpi_container, "ACUMULADO",   0, 1, AZUL)
-        self.kpi_quant  = self._kpi(kpi_container, "QUANTITATIVA",1, 1, VERDE)
+        self.kpi_acum   = self._kpi(kpi_container, "ACUMULADO",    0, 1, AZUL)
+        self.kpi_quant  = self._kpi(kpi_container, "QUANTITATIVA", 1, 1, VERDE)
 
         # ── Separador ──
         ctk.CTkFrame(self.sidebar, height=1, fg_color=BORDA).pack(fill="x", padx=0)
@@ -285,7 +264,6 @@ class CofreBrasul(ctk.CTk):
         ctk.CTkLabel(left, text="Consulte e gerencie todos os serviços extraídos dos PDFs FDE",
                      font=F_LABEL, text_color=CINZA_TXT).pack(anchor="w")
 
-        # Data
         from datetime import date
         meses = ["","Janeiro","Fevereiro","Março","Abril","Maio","Junho",
                  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
@@ -299,11 +277,9 @@ class CofreBrasul(ctk.CTk):
                                   border_width=1, border_color=BORDA)
         busca_card.grid(row=1, column=0, sticky="ew", pady=(0, 16))
 
-        # Linha 1: entrada + botão
         linha1 = ctk.CTkFrame(busca_card, fg_color="transparent")
         linha1.pack(fill="x", padx=18, pady=(16, 8))
 
-        # Ícone lupa
         ctk.CTkLabel(linha1, text="🔍",
                      font=ctk.CTkFont(size=20)).pack(side="left", padx=(0, 10))
 
@@ -316,7 +292,7 @@ class CofreBrasul(ctk.CTk):
             text_color=PRETO,
             corner_radius=10)
         self.entry_busca.pack(side="left", fill="x", expand=True, padx=(0, 12))
-        self.entry_busca.bind("<Return>",    lambda e: self._pesquisar())
+        self.entry_busca.bind("<Return>",     lambda e: self._pesquisar())
         self.entry_busca.bind("<KeyRelease>", self._debounce_busca)
 
         ctk.CTkButton(
@@ -333,7 +309,6 @@ class CofreBrasul(ctk.CTk):
             width=54, height=54, corner_radius=10, font=F_BTN,
             command=self._limpar).pack(side="left")
 
-        # Linha 2: filtros de tipo (chips)
         linha2 = ctk.CTkFrame(busca_card, fg_color="transparent")
         linha2.pack(fill="x", padx=18, pady=(0, 14))
 
@@ -365,7 +340,6 @@ class CofreBrasul(ctk.CTk):
         tab_card.grid_rowconfigure(1, weight=1)
         tab_card.grid_columnconfigure(0, weight=1)
 
-        # Sub-cabeçalho da tabela
         cab = ctk.CTkFrame(tab_card, fg_color="transparent")
         cab.grid(row=0, column=0, columnspan=2, sticky="ew", padx=18, pady=(14, 8))
 
@@ -378,7 +352,6 @@ class CofreBrasul(ctk.CTk):
                                          font=F_LABEL, text_color=CINZA_TXT)
         self.lbl_contagem.pack(side="right")
 
-        # Treeview — estilo refinado
         style = ttk.Style()
         style.theme_use("default")
         style.configure("Brasul.Treeview",
@@ -404,25 +377,23 @@ class CofreBrasul(ctk.CTk):
                                    selectmode="extended")
 
         headers_cfg = {
-            "tipo": ("TIPO",              110, "center"),
-            "obra": ("ESCOLA / OBRA",     310, "w"),
-            "cod":  ("CÓDIGO",            130, "center"),
+            "tipo": ("TIPO",                 110, "center"),
+            "obra": ("ESCOLA / OBRA",         310, "w"),
+            "cod":  ("CÓDIGO",               130, "center"),
             "desc": ("DESCRIÇÃO DO SERVIÇO", 560, "w"),
-            "un":   ("UN",                70,  "center"),
+            "un":   ("UN",                    70, "center"),
         }
         for col, (h, w, anc) in headers_cfg.items():
             self.tabela.heading(col, text=h,
                                 command=lambda c=col: self._ordenar(c))
             self.tabela.column(col, width=w, anchor=anc, minwidth=60)
 
-        # Tags de cor
         self.tabela.tag_configure("ACUMULADO",   background=AZUL_LITE,  foreground=AZUL)
         self.tabela.tag_configure("QUANTITATIVA",background=VERDE_LITE, foreground=VERDE)
         self.tabela.tag_configure("AMBOS",       background=LILAS_LITE, foreground=LILAS)
         self.tabela.tag_configure("PAR",         background=BRANCO,     foreground=PRETO)
         self.tabela.tag_configure("IMPAR",       background=CINZA_LINHA,foreground=PRETO)
 
-        # Scrollbars
         vsb = ttk.Scrollbar(tab_card, orient="vertical",   command=self.tabela.yview)
         hsb = ttk.Scrollbar(tab_card, orient="horizontal", command=self.tabela.xview)
         self.tabela.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
@@ -441,8 +412,7 @@ class CofreBrasul(ctk.CTk):
             return
 
         df = self.df_completo
-        obras = df['Obra'].nunique()
-        # só linhas com código FDE válido
+        obras  = df['Obra'].nunique()
         validos = df[df['Cod'].str.match(r'\d{2}\.\d{2}', na=False)]
         itens  = len(validos)
         acum   = validos[validos['Tipo'].str.contains('ACUMULADO',    na=False)].shape[0]
@@ -465,17 +435,12 @@ class CofreBrasul(ctk.CTk):
         termo = self.entry_busca.get().strip()
         tipo  = self._tipo_ativo
 
-        if not termo and tipo == "TODOS":
-            self._limpar_tabela()
-            return
-
         if self.df_completo.empty:
             self.lbl_titulo_res.configure(text="Nenhum dado carregado.")
             return
 
         df = self.df_completo.copy()
 
-        # ── Filtro texto ──
         if termo:
             t = self._norm(termo)
             mask = (
@@ -485,35 +450,26 @@ class CofreBrasul(ctk.CTk):
             )
             df = df[mask]
 
-        # ── Filtro tipo ──
         if tipo != "TODOS":
             if tipo == "AMBOS":
-<<<<<<< HEAD
-                df = df[df['Tipo'].str.upper().str.strip() == 'AMBOS']
-            else:
-                df = df[df['Tipo'].str.upper().str.strip() == tipo]
-=======
                 df = df[
                     df['Tipo'].str.contains('ACUMULADO',    na=False) &
                     df['Tipo'].str.contains('QUANTITATIVA', na=False)
                 ]
             else:
                 df = df[df['Tipo'].str.contains(tipo, na=False)]
->>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
 
         self.df_filtro = df
         self._popular_tabela(df)
 
     def _set_tipo(self, val, cor_ativa, cor_txt):
         self._tipo_ativo = val
-        # Atualiza visual dos chips
         for v, (btn, ca, ct) in self._chips.items():
             if v == val:
                 btn.configure(fg_color=ca if ca != PRETO else PRETO,
                                text_color=ct)
             else:
                 btn.configure(fg_color="#EFEFEF", text_color=CINZA_TXT)
-        # Chip "Todos" especial
         if val == "TODOS":
             self._chips["TODOS"][0].configure(fg_color=PRETO, text_color=BRANCO)
         self._pesquisar()
@@ -525,9 +481,9 @@ class CofreBrasul(ctk.CTk):
         self.tabela.delete(*self.tabela.get_children())
 
         icone_tipo = {
-            'ACUMULADO':                 '📊  Acumulado',
-            'QUANTITATIVA':              '📋  Quantitativa',
-            'ACUMULADO e QUANTITATIVA':  '🔄  Ambos',
+            'ACUMULADO':                '📊  Acumulado',
+            'QUANTITATIVA':             '📋  Quantitativa',
+            'ACUMULADO e QUANTITATIVA': '🔄  Ambos',
         }
 
         MAX = 2000
@@ -604,7 +560,6 @@ class CofreBrasul(ctk.CTk):
         dest = os.path.join(self.pasta_input, os.path.basename(caminho))
         shutil.copy(caminho, dest)
 
-        # Feedback visual
         self.btn_import.configure(state="disabled", text="⏳  Lendo PDF...")
         self.progresso.pack(padx=18, pady=6, fill="x")
         self.progresso.start()
@@ -613,7 +568,6 @@ class CofreBrasul(ctk.CTk):
         threading.Thread(target=self._run_ocr, args=(dest,), daemon=True).start()
 
     def _arquivos_ja_processados(self) -> set:
-        """Retorna conjunto dos nomes de arquivo ja no Cofre_Brasul.xlsx."""
         if os.path.exists(self.caminho_xls):
             try:
                 df = pd.read_excel(self.caminho_xls, usecols=['Obra_Arq']).fillna('')
@@ -623,17 +577,16 @@ class CofreBrasul(ctk.CTk):
         return set()
 
     def _run_ocr(self, caminho_pdf: str):
-        erro_msg    = None
-        n_itens     = 0
-        duplicado   = False
+        erro_msg  = None
+        n_itens   = 0
+        duplicado = False
         try:
             from pathlib import Path
             import time
 
             nome_arq = os.path.basename(caminho_pdf)
+            ja_proc  = self._arquivos_ja_processados()
 
-            # Verifica duplicidade ANTES de rodar OCR
-            ja_proc = self._arquivos_ja_processados()
             if nome_arq in ja_proc:
                 duplicado = True
             else:
@@ -644,7 +597,6 @@ class CofreBrasul(ctk.CTk):
                 if resultado is None:
                     duplicado = True
                 else:
-                    # Monta DataFrame com os itens extraidos
                     rows = []
                     for it in resultado.get('itens', []):
                         rows.append({
@@ -655,10 +607,9 @@ class CofreBrasul(ctk.CTk):
                             'Desc':     it.get('descricao', ''),
                             'UN':       it.get('unidade',   ''),
                         })
-                    novo = pd.DataFrame(rows)
+                    novo    = pd.DataFrame(rows)
                     n_itens = len(rows)
 
-                    # Integra ao banco existente
                     if not novo.empty:
                         os.makedirs(self.pasta_output, exist_ok=True)
                         if os.path.exists(self.caminho_xls):
@@ -669,7 +620,6 @@ class CofreBrasul(ctk.CTk):
                         else:
                             combinado = novo
 
-                        # Salva com retry - caso o arquivo esteja aberto no Excel
                         for tentativa in range(5):
                             try:
                                 combinado.to_excel(self.caminho_xls, index=False)
@@ -686,7 +636,6 @@ class CofreBrasul(ctk.CTk):
             traceback.print_exc()
             erro_msg = str(e)
 
-        # Volta para a thread principal
         if duplicado:
             self.after(0, self._ocr_duplicado)
         elif erro_msg:

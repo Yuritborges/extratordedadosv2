@@ -1,27 +1,27 @@
 """
-main.py — COFRE BRASUL v9.6  (VERSÃO DEFINITIVA)
+main.py — COFRE BRASUL v9.16
 ==================================================
 Extrator automático de insumos FDE de PDFs de atestados.
-
 Formato de saída: Obra | Obra_Arq | Tipo | Cod | Desc | UN
 
 HISTÓRICO:
-  v9.0 → nome da obra corrigido (ESCOLA: antes de tudo), MODO_PASTA=True, rglob
-  v9.1 → candidatos de 4 dígitos: retorna 1 candidato (não 2), consultando a Base
-          isso eliminou falsos positivos como 02.02.090, 02.02.907, 02.03.041
-  v9.2 → Base Mestra expandida de 244 → 3160 itens (tabela FDE completa Abr/2022)
-          filtro de grupo ajustado para 01-16 (FDE só vai até grupo 16)
-  v9.3 → filtro terceiro grupo > 510 elimina lixo OCR (datas, valores monetários)
-          dicionário _GRUPOS_GLOBAIS para itens .000 (grupos/subgrupos de totalização)
-  v9.4 → tabela _OCR_SUBGRUPO_FIX: corrige erros OCR no subgrupo (ex: 06.13→08.13)
-          _GRUPOS_GLOBAIS expandido com subgrupos adicionais dos PDFs reais
-  v9.6 → DUPLA FAIXA OCR: faixa 3~22% + faixa 3~30% com união filtrada pela base
-          máxima cobertura sem falsos positivos
-  v9.5 → CAPTURA INTELIGENTE POR VALOR:
-          ACUMULADO: captura só se QtdOrç > 0 OU QtdAcumulada > 0
-          QUANTITATIVA: captura só se UN preenchida OU QTD orçada > 0
-          _tem_valor_positivo tolerante: aceita 1-3 decimais e inteiros
-          preservação de preenchimentos manuais entre rodadas
+  v9.0  → nome da obra corrigido, MODO_PASTA=True, rglob
+  v9.1  → candidatos 4 dígitos: retorna 1 candidato consultando a Base
+  v9.2  → Base Mestra expandida 244→3160 itens
+  v9.3  → filtro terceiro grupo > 510; _GRUPOS_GLOBAIS
+  v9.4  → _OCR_SUBGRUPO_FIX; _GRUPOS_GLOBAIS expandido
+  v9.5  → CAPTURA INTELIGENTE POR VALOR (QtdOrç/QtdAcum/UN)
+  v9.6  → DUPLA FAIXA OCR: 3~22% + 3~30% com união filtrada
+  v9.14 → quatro faixas OCR cobrindo screenshots SEI (y0=0.15 e 0.22)
+  v9.15 → TRÊS CORREÇÕES CRÍTICAS:
+          FIX-1: OCR lê "9" como "8" no grupo principal
+          FIX-2: filtrar_base gera STUB para subgrupos conhecidos
+          FIX-3: _OCR_ITEM_FIX expandido
+  v9.16 → QUATRO NOVAS CORREÇÕES OCR (baseadas em análise de 10 PDFs):
+          FIX-4: _OCR_SUBGRUPO_FIX: 09.64→09.84 (OCR "84"→"64") CRÍTICO
+          FIX-5: _OCR_SUBGRUPO_FIX: 06.03→08.03 (OCR "08"→"06")
+          FIX-6: _OCR_SUBGRUPO_FIX: 14.02→11.02 (OCR "11"→"14")
+          FIX-7: _OCR_ITEM_FIX: 4 padrões pontuais novos
 """
 
 import re
@@ -29,24 +29,24 @@ import sys
 from pathlib import Path
 
 # ══════════════════════════════════════════════════════════
-#  1.  CONFIGURAÇÃO  — ajuste conforme seu ambiente
+#  1.  CONFIGURAÇÃO
 # ══════════════════════════════════════════════════════════
 
 BASE_DIR      = Path(r"C:\Users\Iury\Documents\PROJETO EXTRATOR DE DADOS VERSÃO 2")
-MODO_PASTA    = True                           # True = processa toda a pasta input
+MODO_PASTA    = True
 CAMINHO_PDF   = BASE_DIR / "DATA" / "input" / "Ana Luiza Florence Borges I.pdf"
 PASTA_INPUT   = BASE_DIR / "DATA" / "input"
 PASTA_OUTPUT  = BASE_DIR / "DATA" / "output"
 CAMINHO_BASE  = BASE_DIR / "Base_Mestra_FDE.xlsx"
 NOME_SAIDA    = "Cofre_Brasul.xlsx"
 
-DPI_DETECT    = 200     # DPI para detectar tipo de página (rápido)
-DPI_OCR       = 400     # DPI para OCR dos códigos (qualidade)
-CONTRASTE     = 2.5     # fator de contraste da imagem antes do OCR
+DPI_DETECT    = 200
+DPI_OCR       = 400
+CONTRASTE     = 2.5
 TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 # ══════════════════════════════════════════════════════════
-#  2.  IMPORTS  — checa dependências
+#  2.  IMPORTS
 # ══════════════════════════════════════════════════════════
 
 try:
@@ -63,29 +63,23 @@ except ImportError as e:
 #  3.  CONSTANTES OCR / REGEX
 # ══════════════════════════════════════════════════════════
 
-# Corrige letras que o OCR confunde com dígitos
 _OCR_CORR = str.maketrans('OoQqIlAa', '00000100')
 
-# Regex principal: tolera separadores entre os grupos do código FDE
-# Captura XX.XX.XXX com separadores ., _ | - espaço
 _RE_TOL = re.compile(
     r'(?<![0-9A-Za-z])'
-    r'([0-2OoAaQq9][0-9OoQq])'          # grupo 1: dois chars (ex: 02, 09, 16)
+    r'([0-2OoAaQq9][0-9OoQq])'
     r'[.,_|\-\s\\]{0,2}'
-    r'([0-9OoQq]{2})'                    # grupo 2: dois dígitos (ex: 01, 13)
+    r'([0-9OoQq]{2})'
     r'[.,_|\-\s\\]{0,2}'
-    r'([0-9OoQq]{2,4})'                  # grupo 3: 2-4 dígitos (ex: 001, 0041)
+    r'([0-9OoQq]{2,4})'
     r'(?![0-9A-Za-z])'
 )
 
 # ══════════════════════════════════════════════════════════
 #  4.  DICIONÁRIO DE GRUPOS GLOBAIS (.000)
-#  Itens de totalização de grupo — não estão na tabela FDE
-#  mas aparecem nas planilhas como linhas de subtotal.
 # ══════════════════════════════════════════════════════════
 
 _GRUPOS_GLOBAIS = {
-    # grupos principais
     '0100000': ('SERVIÇOS GERAIS', '%'),
     '0200000': ('FUNDAÇÕES', '%'),
     '0300000': ('ESTRUTURA', '%'),
@@ -102,7 +96,6 @@ _GRUPOS_GLOBAIS = {
     '1400000': ('VIDROS', '%'),
     '1500000': ('PINTURAS', '%'),
     '1600000': ('SERVIÇOS COMPLEMENTARES', '%'),
-    # subgrupos frequentes
     '0102000': ('SERVIÇOS GERAIS - SERVIÇOS INICIAIS', '%'),
     '0202000': ('FUNDAÇÕES - ESTACAS', '%'),
     '0203000': ('FUNDAÇÕES - FORMAS', '%'),
@@ -116,15 +109,16 @@ _GRUPOS_GLOBAIS = {
     '0560000': ('ESQUADRIAS - RETIRADAS DE MADEIRA', '%'),
     '0580000': ('ESQUADRIAS - FERRAGENS', '%'),
     '0601000': ('ESQ. METÁLICAS - PORTÕES E GRADES', '%'),
-    '0603000': ('ESQ. METÁLICAS - GUARDA-CORPOS E CORRIMÃOS', '%'),
+    '0603000': ('ESQ. METÁLICAS - ESCADAS E CORRIMÃOS', '%'),
     '0609000': ('ESQ. METÁLICAS - GRADIS E TELAS', '%'),
     '0611000': ('ESQ. METÁLICAS - PORTÕES DESLIZANTES', '%'),
     '0660000': ('ESQ. METÁLICAS - RETIRADAS', '%'),
     '0682000': ('ESQ. METÁLICAS - FERRAGENS DIVERSAS', '%'),
     '0685000': ('ESQ. METÁLICAS - RETIRADAS DE FERRAGENS', '%'),
-    '0702000': ('COBERTURA - ESTRUTURA METÁLICA', '%'),
+    '0603000': ('ESQ. METÁLICAS - GUARDA-CORPOS E CORRIMÃOS', '%'),
+    '0702000': ('ESTRUTURA DE COBERTURA METALICA', '%'),
     '0703000': ('COBERTURA', '%'),
-    '0704000': ('COBERTURA - CUMEEIRAS E RUFOS', '%'),
+    '0704000': ('PECAS PARA COBERTURA', '%'),
     '0705000': ('COBERTURA - FECHAMENTOS E VEDAÇÕES', '%'),
     '0760000': ('COBERTURA - RETIRADAS DE ESTRUTURA', '%'),
     '0770000': ('COBERTURA - RETIRADAS DE TELHAS', '%'),
@@ -132,6 +126,7 @@ _GRUPOS_GLOBAIS = {
     '0805000': ('INST. HIDRÁULICAS - TUBOS DE COBRE', '%'),
     '0807000': ('INST. HIDRÁULICAS - ÁGUA FRIA', '%'),
     '0808000': ('INST. HIDRÁULICAS - ESGOTO', '%'),
+    '0809000': ('INST. HIDRÁULICAS - ÁGUA FRIA', '%'),
     '0811000': ('REDE DE AGUAS PLUVIAIS: TUBULACOES', '%'),
     '0812000': ('REDE DE AGUAS PLUVIAIS: DEMAIS SERVICOS', '%'),
     '0813000': ('INST. HIDRÁULICAS - TUBULAÇÕES GERAIS', '%'),
@@ -140,18 +135,19 @@ _GRUPOS_GLOBAIS = {
     '0860000': ('INST. HIDRÁULICAS - RETIRADAS DIV.', '%'),
     '0884000': ('INST. HIDRÁULICAS - PEÇAS DE REPOSIÇÃO SANITÁRIA', '%'),
     '0902000': ('INST. ELÉTRICAS - ENTRADA DE ENERGIA', '%'),
-    '0905000': ('INST. ELÉTRICAS - ELETRODUTOS', '%'),
-    '0907000': ('INST. ELÉTRICAS - FIOS E CABOS', '%'),
-    '0908000': ('INST. ELÉTRICAS - PONTOS ELÉTRICOS', '%'),
-    '0909000': ('INST. ELÉTRICAS - ILUMINAÇÃO', '%'),
+    '0905000': ('REDE DE BAIXA TENSAO: DUTO/QUADROS PARCIAIS LUZ/QUADROS TELEFONE', '%'),
+    '0907000': ('REDE DE BAIXA TENSAO: ENFIACAO', '%'),
+    '0908000': ('PONTOS DE INTERRUPTORES E TOMADAS', '%'),
+    '0909000': ('LUMINARIAS INTERNAS', '%'),
+    '0910000': ('INST. ELÉTRICAS - CENTRO DE LUZ', '%'),
     '0912000': ('INST. ELÉTRICAS - EXAUSTÃO', '%'),
-    '0913000': ('INST. ELÉTRICAS - SPDA/ATERRAMENTO', '%'),
+    '0913000': ('PARA RAIOS', '%'),
     '0919000': ('INST. ELÉTRICAS - RETIRADAS DIVERSAS', '%'),
     '0960000': ('INST. ELÉTRICAS - RETIRADAS DIVERSAS', '%'),
     '0964000': ('INST. ELÉTRICAS - RETIRADAS DE APARELHOS', '%'),
     '0974000': ('INST. ELÉTRICAS - RECOLOCAÇÕES', '%'),
-    '0982000': ('INST. ELÉTRICAS - POSTES E SUPORTES', '%'),
-    '0984000': ('INST. ELÉTRICAS - INTERRUPTORES E TOMADAS', '%'),
+    '0982000': ('CONSERVACAO - BAIXA TENSAO', '%'),
+    '0984000': ('CONSERVACAO - APARELHOS E EQUIPAMENTOS', '%'),
     '0985000': ('INST. ELÉTRICAS - INFRAESTRUTURA LÓGICA', '%'),
     '1050000': ('FORROS - DEMOLIÇÕES', '%'),
     '1150000': ('IMPERMEABILIZAÇÕES - DEMOLIÇÕES', '%'),
@@ -165,57 +161,77 @@ _GRUPOS_GLOBAIS = {
     '1502000': ('PINTURAS - PAREDES E TETOS', '%'),
     '1503000': ('ESQUADRIAS', '%'),
     '1550000': ('PINTURAS - REMOÇÕES', '%'),
+    '1580000': ('PINTURAS - RETIRADAS E REMOÇÕES DIVERSAS', '%'),
     '1603000': ('SERV. COMPL. - JARDINAGEM', '%'),
     '1606000': ('SERV. COMPL. - INSTALAÇÕES PROVISÓRIAS', '%'),
     '1608000': ('SERV. COMPL. - SINALIZAÇÃO', '%'),
+    '1614000': ('SERV. COMPL. - CANTEIRO DE OBRAS', '%'),
+    '1618000': ('SERV. COMPL. - LIMPEZA E SERVIÇOS FINAIS', '%'),
+    '1620000': ('SERV. COMPL. - ELETRODUTOS E TUBULAÇÕES', '%'),
+    '1630000': ('SERV. COMPL. - ANDAIMES E TAPUMES', '%'),
     '1650000': ('SERV. COMPL. - DEMOLIÇÕES', '%'),
     '1680000': ('SERV. COMPL. - SERVIÇOS FINAIS', '%'),
-        # subgrupos 07.xx adicionais (confirmados em PDFs reais)
-    '0702000': ('ESTRUTURA DE COBERTURA METALICA', '%'),
-    '0704000': ('PECAS PARA COBERTURA', '%'),
-    # subgrupos 09.xx adicionais (confirmados em PDFs reais)
-    '0905000': ('REDE DE BAIXA TENSAO: DUTO/QUADROS PARCIAIS LUZ/QUADROS TELEFONE', '%'),
-    '0907000': ('REDE DE BAIXA TENSAO: ENFIACAO', '%'),
-    '0908000': ('PONTOS DE INTERRUPTORES E TOMADAS', '%'),
-    '0909000': ('LUMINARIAS INTERNAS', '%'),
-    '0913000': ('PARA RAIOS', '%'),
-    '0982000': ('CONSERVACAO - BAIXA TENSAO', '%'),
-    '0984000': ('CONSERVACAO - APARELHOS E EQUIPAMENTOS', '%'),
+    '1680097': ('CAÇAMBA DE 4M3 PARA RETIRADA DE ENTULHO', 'UN'),
 }
 
 # ══════════════════════════════════════════════════════════
-#  5.  CORREÇÕES DE SUBGRUPO POR ERRO OCR
-#  O OCR às vezes confunde dígitos parecidos no subgrupo:
-#    8 lido como 6 → subgrupos 06.xx que deveriam ser 08.xx
-#    1 lido como 9 → subgrupos xx.19 que deveriam ser xx.09
-#  Só ativa quando o subgrupo original NÃO existe na base.
+#  5.  CORREÇÕES OCR
 # ══════════════════════════════════════════════════════════
 
-# Correções de código COMPLETO por erro OCR no terceiro grupo
-# {cod7_errado: cod7_correto}
+# FIX-3 (v9.15) + FIX-7 (v9.16): padrões recorrentes de troca no código completo
 _OCR_ITEM_FIX = {
-    '1606058': '1606059',   # 16.06.058 → 16.06.059 (OCR lê 8 em vez de 9 no último dígito)
+    # v9.15 originais
+    '1606058': '1606059',   # 16.06.058 → 16.06.059 (OCR: 8→9 no último dígito)
+    '0202005': '0202095',   # 02.02.005 → 02.02.095
+    '0202009': '0202095',   # 02.02.009 → 02.02.095
+    '0580004': '0580001',   # 05.80.004 → 05.80.001
+    '0580080': '0580081',   # 05.80.080 → 05.80.081
+    '0580087': '0580081',   # 05.80.087 → 05.80.081
+    '0760056': '0760066',   # 07.60.056 → 07.60.066
+    '0780005': '0780001',   # 07.80.005 → 07.80.001
+    '1503010': '1503011',   # 15.03.010 → 15.03.011
+    '0984035': '0984003',   # 09.84.035 → 09.84.003
+    '0201027': '0201025',   # 02.01.027 → 02.01.025
+    # v9.16 novos — confirmados na análise dos 10 PDFs
+    '1001045': '1001049',   # 10.01.045 → 10.01.049 (OCR: 9→5 inversão)
+    '1503060': '1503061',   # 15.03.060 → 15.03.061 (OCR: perdeu "1" final)
+    '0974008': '0974006',   # 09.74.008 → 09.74.006 (OCR: 6→8)
+    '0760067': '0760061',   # 07.60.067 → 07.60.061 (OCR: 1→7)
+    '0780089': '0780019',   # 07.80.089 → 07.80.019 (OCR: 1→8, 9→8)
+    '0808004': '0908004',   # 08.08.004 → 09.08.004 (OCR: grupo 08→09 parcial)
 }
 
+# Correções de subgrupo (primeiros 4 dígitos)
 _OCR_SUBGRUPO_FIX = {
-    '0613': '0813',   # 06.13 → 08.13  (OCR leu 8 como 6) ← confirmado em PDFs reais
-    '0609': '0809',   # 06.09 → 08.09  (OCR leu 8 como 6) ← confirmado
-    '0611': '0811',   # 06.11 → 08.11  (OCR leu 8 como 6)
+    # v9.15 originais
+    '0613': '0813',   # 06.13 → 08.13  (OCR leu 8 como 6)
+    '0609': '0809',   # 06.09 → 08.09
+    '0611': '0811',   # 06.11 → 08.11
     '0619': '0819',   # 06.19 → 08.19
-    '0819': '0809',   # 08.19 → 08.09  (OCR leu 0 como 1) ← confirmado
-    '0919': '0909',   # 09.19 → 09.09  (OCR leu 0 como 1) ← confirmado
+    '0819': '0809',   # 08.19 → 08.09
+    '0919': '0909',   # 09.19 → 09.09
+    # v9.16 NOVOS — confirmados na análise de 10 PDFs
+    '0964': '0984',   # FIX-4: 09.64 → 09.84 (OCR "84"→"64") ← CRÍTICO
+                      # Exemplo: 09.64.039 → 09.84.039 (conservação aparelhos)
+    '0603': '0803',   # FIX-5: 06.03 → 08.03 (OCR "08"→"06")
+                      # Exemplo: 06.03.020 → 08.03.020
+    '1402': '1102',   # FIX-6: 14.02 → 11.02 (OCR "11"→"14", dois "1" viram "4")
+                      # Exemplo: 14.02.027 → 11.02.027
 }
+
+# ══════════════════════════════════════════════════════════
+#  5b. SUBGRUPOS VÁLIDOS — populado por carregar_base()
+# ══════════════════════════════════════════════════════════
+_SUBGRUPOS_VALIDOS: set = set()
+
 
 # ══════════════════════════════════════════════════════════
 #  6.  CARREGAMENTO DA BASE MESTRA
 # ══════════════════════════════════════════════════════════
 
 def carregar_base(caminho: Path) -> tuple:
-    """
-    Lê a Base_Mestra_FDE.xlsx e retorna:
-      por_cod  : dict  cod7 → (descricao, unidade)
-      por_desc : list  [(cod7, descricao_upper)] para busca por descrição
-    """
+    global _SUBGRUPOS_VALIDOS
+
     if not caminho.exists():
         sys.exit(f"\nBase Mestra não encontrada:\n  {caminho}\n")
 
@@ -235,7 +251,13 @@ def carregar_base(caminho: Path) -> tuple:
         por_cod[c7]  = (desc, un)
         por_desc.append((c7, desc.upper()))
 
-    print(f"  Base Mestra: {len(por_cod)} itens carregados")
+    # FIX-2: constrói conjunto de subgrupos (4 dígitos) presentes na base
+    _SUBGRUPOS_VALIDOS = (
+        {c7[:4] for c7 in por_cod} |
+        {c7[:4] for c7 in _GRUPOS_GLOBAIS}
+    )
+
+    print(f"  Base Mestra: {len(por_cod)} itens | {len(_SUBGRUPOS_VALIDOS)} subgrupos conhecidos")
     return por_cod, por_desc
 
 
@@ -245,25 +267,38 @@ def carregar_base(caminho: Path) -> tuple:
 
 def match_item(cod7: str, por_cod: dict, por_desc: list) -> dict:
     """
-    Dado um cod7 (7 dígitos), devolve dict com codigo, descricao, unidade.
-    Ordem de busca:
-      1. Base Mestra (exata)
-      2. Correção de subgrupo OCR (_OCR_SUBGRUPO_FIX)
-      3. Grupos globais .000 (_GRUPOS_GLOBAIS)
-      4. Stub sem descrição (para preenchimento manual)
+    Busca hierárquica:
+      1.   FIX-3+7: correção de código completo (_OCR_ITEM_FIX)
+      2.   Base Mestra (exata)
+      2.5. FIX-1: 08.xx → 09.xx (OCR lê "9" como "8")
+      3.   FIX-4+5+6: correção de subgrupo (_OCR_SUBGRUPO_FIX)
+      4.   Grupos globais .000 (_GRUPOS_GLOBAIS)
+      5.   Stub
     """
-    # Correção de código completo por erro OCR no terceiro grupo
+    # FIX-3+7: correção de código completo antes de qualquer lookup
     if cod7 in _OCR_ITEM_FIX:
         cod7 = _OCR_ITEM_FIX[cod7]
 
     cod_fmt = f"{cod7[:2]}.{cod7[2:4]}.{cod7[4:]}"
 
-    # 1. Base Mestra
+    # 1. Base Mestra (exata)
     if cod7 in por_cod:
         desc, un = por_cod[cod7]
         return {'codigo': cod_fmt, 'descricao': desc, 'unidade': un}
 
-    # 2. Correção de subgrupo OCR
+    # FIX-1 (v9.15): 08.xx → 09.xx
+    if cod7[:2] == '08':
+        alt09 = '09' + cod7[2:]
+        if alt09 in por_cod:
+            desc, un = por_cod[alt09]
+            cod_fmt_alt = f"09.{alt09[2:4]}.{alt09[4:]}"
+            return {'codigo': cod_fmt_alt, 'descricao': desc, 'unidade': un}
+        if alt09 in _GRUPOS_GLOBAIS:
+            desc, un = _GRUPOS_GLOBAIS[alt09]
+            cod_fmt_alt = f"09.{alt09[2:4]}.{alt09[4:]}"
+            return {'codigo': cod_fmt_alt, 'descricao': desc, 'unidade': un}
+
+    # FIX-4+5+6: correção de subgrupo (_OCR_SUBGRUPO_FIX)
     sg = cod7[:4]
     if sg in _OCR_SUBGRUPO_FIX:
         cod7_fix = _OCR_SUBGRUPO_FIX[sg] + cod7[4:]
@@ -271,13 +306,20 @@ def match_item(cod7: str, por_cod: dict, por_desc: list) -> dict:
             desc, un = por_cod[cod7_fix]
             cod_fmt_fix = f"{cod7_fix[:2]}.{cod7_fix[2:4]}.{cod7_fix[4:]}"
             return {'codigo': cod_fmt_fix, 'descricao': desc, 'unidade': un}
+        # Subgrupo corrigido existe em _GRUPOS_GLOBAIS?
+        sg_fix_000 = _OCR_SUBGRUPO_FIX[sg] + '000'
+        if sg_fix_000 in _GRUPOS_GLOBAIS:
+            cod7_fix2 = _OCR_SUBGRUPO_FIX[sg] + cod7[4:]
+            cod_fmt_fix = f"{cod7_fix2[:2]}.{cod7_fix2[2:4]}.{cod7_fix2[4:]}"
+            desc, un = _GRUPOS_GLOBAIS[sg_fix_000]
+            return {'codigo': cod_fmt_fix, 'descricao': desc, 'unidade': un}
 
     # 3. Grupos globais .000
     if cod7 in _GRUPOS_GLOBAIS:
         desc, un = _GRUPOS_GLOBAIS[cod7]
         return {'codigo': cod_fmt, 'descricao': desc, 'unidade': un}
 
-    # 4. Stub — item real mas ausente da base; preservado para preenchimento manual
+    # 4. Stub — item real mas ausente da base
     return {'codigo': cod_fmt, 'descricao': '', 'unidade': ''}
 
 
@@ -286,42 +328,28 @@ def match_item(cod7: str, por_cod: dict, por_desc: list) -> dict:
 # ══════════════════════════════════════════════════════════
 
 def _melhor_candidato_4dig(a2: str, b2: str, c4: str, por_cod: dict) -> str | None:
-    """
-    OCR às vezes captura 4 dígitos no terceiro grupo (ex: "0041" em vez de "001").
-    Gera 4 candidatos removendo 1 dígito de cada posição e devolve EXATAMENTE 1.
-    Prioridade: candidato que existe na Base Mestra → se nenhum, usa posição 2.
-    """
     cands = [
-        a2 + b2 + c4[1:],          # remove pos 0
-        a2 + b2 + c4[0] + c4[2:],  # remove pos 1
-        a2 + b2 + c4[:2] + c4[3:], # remove pos 2  ← empiricamente mais frequente
-        a2 + b2 + c4[:3],           # remove pos 3
+        a2 + b2 + c4[1:],
+        a2 + b2 + c4[0] + c4[2:],
+        a2 + b2 + c4[:2] + c4[3:],
+        a2 + b2 + c4[:3],
     ]
     validos = [c for c in cands
                if len(c) == 7 and c.isdigit() and 1 <= int(c[:2]) <= 16]
     if not validos:
         return None
-    # prioridade: está na base
     for c in validos:
         if c in por_cod:
             return c
-    # fallback: posição 2
     pos2 = a2 + b2 + c4[:2] + c4[3:]
     return pos2 if pos2 in validos else validos[0]
 
 
 # ══════════════════════════════════════════════════════════
 #  9.  VERIFICAÇÃO DE VALOR (v9.5)
-#  Decide se um item foi realmente utilizado na obra.
 # ══════════════════════════════════════════════════════════
 
 def _tem_valor_positivo(txt: str) -> bool:
-    """
-    Verifica se o texto OCR contém pelo menos um número > 0.
-    Aceita: 12,50 | 12,5 | 1.200,00 | 500 (inteiro — OCR perdeu o decimal).
-    Usado para decidir se o item foi utilizado na obra.
-    """
-    # decimal com 1, 2 ou 3 casas: 12,0 | 12,00 | 1.200,50
     nums = re.findall(r'(\d[\d.]*)[.,](\d{1,3})(?!\d)', txt)
     for inteiro, dec in nums:
         try:
@@ -330,7 +358,6 @@ def _tem_valor_positivo(txt: str) -> bool:
                 return True
         except ValueError:
             pass
-    # inteiro isolado >= 1 (OCR perdeu a vírgula/decimal)
     for n in re.findall(r'\b([1-9]\d{0,6})\b', txt):
         try:
             if int(n) > 0:
@@ -344,13 +371,30 @@ def _tem_valor_positivo(txt: str) -> bool:
 #  10.  UTILIDADES OCR
 # ══════════════════════════════════════════════════════════
 
+def _corrigir_rotacao(img):
+    """Detecta e corrige páginas rotacionadas (90°, 180°, 270°) via Tesseract OSD."""
+    try:
+        osd = pytesseract.image_to_osd(img, config='--psm 0 -l osd', nice=0)
+        for linha in osd.splitlines():
+            if 'Rotate:' in linha:
+                angulo = int(linha.split(':')[1].strip())
+                if angulo == 90:
+                    return img.rotate(90, expand=True)
+                elif angulo == 180:
+                    return img.rotate(180, expand=True)
+                elif angulo == 270:
+                    return img.rotate(270, expand=True)
+    except Exception:
+        pass  # Se OSD falhar, retorna imagem original sem travar
+    return img
+
+
 def _prep_img(page, dpi: int):
-    """Converte uma página PDF em imagem PIL em escala de cinza."""
-    return page.to_image(resolution=dpi).original.convert('L')
+    img = page.to_image(resolution=dpi).original.convert('L')
+    return _corrigir_rotacao(img)
 
 
 def _ocr(img, config: str = '--psm 6 -l por+eng') -> str:
-    """OCR simples — devolve string."""
     return pytesseract.image_to_string(img, config=config)
 
 
@@ -359,10 +403,6 @@ def _ocr_coluna_coords(img, W: int,
                        y0: float, y1: float,
                        upscale: int = 3,
                        conf_min: int = 20) -> list:
-    """
-    OCR com image_to_data em uma faixa da imagem.
-    Devolve lista de {'text': str, 'y': int} com y em pixels absolutos.
-    """
     y_offset = int(img.size[1] * y0)
     col = img.crop((int(W * x0), int(img.size[1] * y0),
                     int(W * x1), int(img.size[1] * y1)))
@@ -386,8 +426,8 @@ def _ocr_coluna_coords(img, W: int,
 
 def _extrair_codigos(texto: str, por_cod: dict, filtrar_base: bool = False) -> list:
     """
-    Extrai todos os códigos FDE de um texto OCR.
-    Retorna lista de cod7 (string de 7 dígitos).
+    FIX-2 (v9.15): quando filtrar_base=True, gera STUB para itens com
+    subgrupo conhecido em _SUBGRUPOS_VALIDOS em vez de descartar.
     """
     vistos  = set()
     codigos = []
@@ -410,13 +450,17 @@ def _extrair_codigos(texto: str, por_cod: dict, filtrar_base: bool = False) -> l
             continue
         if not (1 <= int(cod7[:2]) <= 16):
             continue
-        # terceiro grupo > 510 = lixo OCR (maior código real na base é 16.03.510)
         if int(cod7[4:]) > 510:
             continue
         if cod7 not in vistos:
-            # filtrar_base=True: aceita apenas o que existe na base ou é grupo .000
-            if filtrar_base and cod7 not in por_cod and cod7 not in _GRUPOS_GLOBAIS:
-                continue
+            if filtrar_base:
+                esta_na_base  = cod7 in por_cod or cod7 in _GRUPOS_GLOBAIS
+                subgrupo_ok   = cod7[:4] in _SUBGRUPOS_VALIDOS
+                # Checar também após correções de subgrupo
+                sg_corrigido  = _OCR_SUBGRUPO_FIX.get(cod7[:4], cod7[:4])
+                subgrupo_ok   = subgrupo_ok or (sg_corrigido + '000' in _GRUPOS_GLOBAIS)
+                if not esta_na_base and not subgrupo_ok:
+                    continue
             vistos.add(cod7)
             codigos.append(cod7)
 
@@ -424,20 +468,10 @@ def _extrair_codigos(texto: str, por_cod: dict, filtrar_base: bool = False) -> l
 
 
 # ══════════════════════════════════════════════════════════
-#  12.  EXTRAÇÃO POR VALOR — ACUMULADO (v9.5)
-#  Captura código APENAS se QtdOrç > 0 OU QtdAcumulada > 0
+#  12.  EXTRAÇÃO POR VALOR — ACUMULADO
 # ══════════════════════════════════════════════════════════
 
 def _extrair_acumulado_por_valor(img, W: int, H: int, por_cod: dict) -> list:
-    """
-    ACUMULADO DE MEDIÇÃO — v9.14.
-    Quatro faixas em UNIÃO filtrada pela base:
-      y0=0.22 + x=3~22%  — PDFs nativos, coluna principal
-      y0=0.22 + x=3~30%  — PDFs nativos, coluna alargada
-      y0=0.15 + x=3~22%  — screenshots SEI (tabela começa mais cedo)
-      y0=0.15 + x=3~30%  — screenshots SEI, coluna alargada
-    filtrar_base=True garante zero falsos positivos na união.
-    """
     H_img = img.size[1]
 
     def _ocr_faixa(x0, x1, y0):
@@ -456,12 +490,10 @@ def _extrair_acumulado_por_valor(img, W: int, H: int, por_cod: dict) -> list:
 
 
 # ══════════════════════════════════════════════════════════
-#  13.  EXTRAÇÃO POR VALOR — QUANTITATIVA (v9.5)
-#  Captura código APENAS se UN preenchida OU QTD orçada > 0
+#  13.  EXTRAÇÃO POR VALOR — QUANTITATIVA
 # ══════════════════════════════════════════════════════════
 
 def _extrair_quantitativa_por_valor(img, W: int, H: int, por_cod: dict) -> list:
-    """QUANTITATIVA — v9.14: mesma estratégia de quatro faixas do ACUMULADO."""
     H_img = img.size[1]
 
     def _ocr_faixa(x0, x1, y0):
@@ -480,14 +512,10 @@ def _extrair_quantitativa_por_valor(img, W: int, H: int, por_cod: dict) -> list:
 
 
 # ══════════════════════════════════════════════════════════
-#  14.  OCR MEIA PÁGINA (QUANT_CONTRATO — legado)
+#  14.  OCR MEIA PÁGINA (QUANT_CONTRATO)
 # ══════════════════════════════════════════════════════════
 
 def _ocr_meia_pagina(page, por_cod: dict) -> list:
-    """
-    OCR na metade esquerda da página inteira.
-    Usado no QUANT_CONTRATO onde os códigos ficam em | pipes | sem coluna fixa.
-    """
     img = _prep_img(page, 300)
     img = ImageEnhance.Contrast(img).enhance(CONTRASTE)
     W, H = img.size
@@ -502,12 +530,8 @@ def _ocr_meia_pagina(page, por_cod: dict) -> list:
 # ══════════════════════════════════════════════════════════
 
 def detectar_tipo(img) -> str:
-    """
-    Lê o cabeçalho da página e classifica em:
-      ACUMULADO | QUANTITATIVA | QUANT_CONTRATO | OUTRA
-    """
     W, H = img.size
-    cab  = img.crop((0, int(H * 0.03), W, int(H * 0.40)))  # ampliado 0.25→0.40
+    cab  = img.crop((0, int(H * 0.03), W, int(H * 0.40)))
     cab  = ImageEnhance.Contrast(cab).enhance(2.0)
     txt  = _ocr(cab, '--psm 3 -l por+eng').upper()
 
@@ -529,13 +553,6 @@ def detectar_tipo(img) -> str:
 # ══════════════════════════════════════════════════════════
 
 def processar_pagina(page, tipo: str, por_cod: dict, por_desc: list) -> list:
-    """
-    Extrai itens de uma página usando o método correto pra cada tipo.
-
-    ACUMULADO    → captura inteligente por valor (QtdOrç ou QtdAcum > 0)
-    QUANTITATIVA → captura inteligente por valor (UN preenchida ou QTD > 0)
-    QUANT_CONTRATO → método legacy (metade esquerda da página)
-    """
     img = _prep_img(page, DPI_OCR)
     img = ImageEnhance.Contrast(img).enhance(CONTRASTE)
     W, H = img.size
@@ -544,7 +561,7 @@ def processar_pagina(page, tipo: str, por_cod: dict, por_desc: list) -> list:
         codigos = _extrair_acumulado_por_valor(img, W, H, por_cod)
     elif tipo == 'QUANTITATIVA':
         codigos = _extrair_quantitativa_por_valor(img, W, H, por_cod)
-    else:  # QUANT_CONTRATO
+    else:
         codigos = _ocr_meia_pagina(page, por_cod)
 
     itens = []
@@ -560,10 +577,6 @@ def processar_pagina(page, tipo: str, por_cod: dict, por_desc: list) -> list:
 # ══════════════════════════════════════════════════════════
 
 def extrair_nome(page) -> str:
-    """
-    Lê o cabeçalho e procura o nome da obra/escola.
-    Padrões em ordem de prioridade (mais confiável primeiro).
-    """
     img = _prep_img(page, DPI_DETECT)
     txt = _ocr(img, '--psm 3 -l por+eng').upper()
 
@@ -588,15 +601,9 @@ def extrair_nome(page) -> str:
 
 # ══════════════════════════════════════════════════════════
 #  18.  PRESERVAÇÃO DE PREENCHIMENTOS MANUAIS
-#  Antes de sobrescrever o Cofre, lê as descrições que o
-#  usuário preencheu manualmente para não perdê-las.
 # ══════════════════════════════════════════════════════════
 
 def _carregar_descricoes_manuais(pasta: Path) -> dict:
-    """
-    Lê o Cofre_Brasul.xlsx anterior (se existir) e salva
-    os preenchimentos manuais: cod7 → {'descricao': ..., 'unidade': ...}
-    """
     cofre = pasta / NOME_SAIDA
     if not cofre.exists():
         return {}
@@ -605,7 +612,6 @@ def _carregar_descricoes_manuais(pasta: Path) -> dict:
         ws = wb.active
         manuais = {}
         for row in ws.iter_rows(min_row=2, values_only=True):
-            # colunas: Obra | Obra_Arq | Tipo | Cod | Desc | UN
             if len(row) < 6:
                 continue
             cod = str(row[3] or '').strip()
@@ -627,12 +633,6 @@ def _carregar_descricoes_manuais(pasta: Path) -> dict:
 
 def processar_pdf(caminho: Path, por_cod: dict, por_desc: list,
                   ja_processados=None) -> dict:
-    """
-    Abre o PDF, processa cada página e devolve:
-      { 'nome': nome da obra, 'arq': nome do arquivo, 'itens': lista de itens }
-
-    Se um item aparece nos dois tipos de planilha → tipo vira 'AMBOS'.
-    """
     print(f"\n  >> {caminho.name}")
 
     if ja_processados and caminho.name in ja_processados:
@@ -646,8 +646,8 @@ def processar_pdf(caminho: Path, por_cod: dict, por_desc: list,
         return None
 
     nome_obra = 'OBRA_DESCONHECIDA'
-    itens_por_tipo = {}  # cod7 → {'item': dict, 'tipos': set}
-    ultimo_tipo = 'OUTRA'  # rastreia tipo anterior para continuação
+    itens_por_tipo = {}
+    ultimo_tipo = 'OUTRA'
 
     with pdf:
         for num, page in enumerate(pdf.pages, 1):
@@ -656,11 +656,6 @@ def processar_pdf(caminho: Path, por_cod: dict, por_desc: list,
                 img_det = ImageEnhance.Contrast(img_det).enhance(2.0)
                 tipo = detectar_tipo(img_det)
 
-                # ── continuação de planilha ──────────────────────────
-                # Se a página não foi reconhecida (OUTRA) mas a anterior
-                # era ACUMULADO ou QUANTITATIVA, verifica se esta página
-                # tem códigos XX.XX.XXX na coluna esquerda (x=2~22%).
-                # Essa faixa cobre tanto PDFs nativos quanto screenshots SEI.
                 if tipo == 'OUTRA' and ultimo_tipo in ('ACUMULADO', 'QUANTITATIVA'):
                     W_d, H_d = img_det.size
                     col_det = img_det.crop((int(W_d*0.02), int(H_d*0.15),
@@ -671,19 +666,20 @@ def processar_pdf(caminho: Path, por_cod: dict, por_desc: list,
                     n_cods = len(re.findall(
                         r'\b\d{2}[.\-]\d{2}[.\-]\d{3}\b', txt_col))
                     if n_cods >= 2:
-                        tipo = ultimo_tipo  # assume continuação
-                # ────────────────────────────────────────────────────
+                        tipo = ultimo_tipo
 
                 ultimo_tipo = tipo
                 if tipo == 'OUTRA':
                     continue
 
-                # extrai nome da obra na primeira página relevante
                 if nome_obra == 'OBRA_DESCONHECIDA':
                     nome_obra = extrair_nome(page)
 
                 itens = processar_pagina(page, tipo, por_cod, por_desc)
-                print(f"     pág {num:2d} [{tipo:13}]: {len(itens)} itens")
+                n_com_desc = sum(1 for i in itens if i.get('descricao'))
+                n_stub     = len(itens) - n_com_desc
+                stub_info  = f" ({n_stub} stubs)" if n_stub else ""
+                print(f"     pág {num:2d} [{tipo:13}]: {len(itens)} itens{stub_info}")
 
                 for item in itens:
                     c7 = re.sub(r'\D', '', item['codigo'])
@@ -694,15 +690,11 @@ def processar_pdf(caminho: Path, por_cod: dict, por_desc: list,
             except Exception as e:
                 print(f"     pág {num}: ERRO — {e}")
 
-    # montar lista final com tipo resolvido
     resultado = []
     for c7, dados in itens_por_tipo.items():
         item  = dados['item']
         tipos = dados['tipos']
-        if len(tipos) > 1:
-            tipo_final = 'AMBOS'
-        else:
-            tipo_final = list(tipos)[0]
+        tipo_final = 'AMBOS' if len(tipos) > 1 else list(tipos)[0]
         resultado.append({**item, 'tipo': tipo_final})
 
     return {
@@ -716,28 +708,22 @@ def processar_pdf(caminho: Path, por_cod: dict, por_desc: list,
 #  20.  GERAÇÃO DO EXCEL DE SAÍDA
 # ══════════════════════════════════════════════════════════
 
-# Cores por tipo de planilha
 _CORES = {
-    'ACUMULADO':     'D6E4F0',   # azul claro
-    'QUANTITATIVA':  'D5F5E3',   # verde claro
-    'QUANT_CONTRATO':'FEF9E7',   # amarelo claro
-    'AMBOS':         'F9EBEA',   # salmão
+    'ACUMULADO':     'D6E4F0',
+    'QUANTITATIVA':  'D5F5E3',
+    'QUANT_CONTRATO':'FEF9E7',
+    'AMBOS':         'F9EBEA',
 }
-_COR_STUB   = 'FADBD8'   # rosa — item sem descrição (preenchimento manual pendente)
-_COR_HEADER = '2C3E50'   # cabeçalho escuro
+_COR_STUB   = 'FADBD8'
+_COR_HEADER = '2C3E50'
 
 
 def gerar_excel(obras: list, pasta: Path, manuais: dict) -> Path:
-    """
-    Gera o Cofre_Brasul.xlsx com todos os itens de todas as obras.
-    Preserva descrições manuais carregadas previamente.
-    """
     saida = pasta / NOME_SAIDA
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = 'Cofre_Brasul'
 
-    # ── cabeçalho
     colunas = ['Obra', 'Obra_Arq', 'Tipo', 'Cod', 'Desc', 'UN']
     larguras = [40, 35, 16, 14, 70, 8]
     header_font = Font(bold=True, color='FFFFFF', size=11)
@@ -758,14 +744,12 @@ def gerar_excel(obras: list, pasta: Path, manuais: dict) -> Path:
     ws.row_dimensions[1].height = 22
     ws.freeze_panes = 'A2'
 
-    # ── dados
     for obra in obras:
         for item in obra['itens']:
             desc = item['descricao']
             un   = item['unidade']
             cod7 = re.sub(r'\D', '', item['codigo'])
 
-            # aplica preenchimento manual se não tem descrição na base
             if not desc and cod7 in manuais:
                 desc = manuais[cod7]['descricao']
                 un   = manuais[cod7].get('unidade', un)
@@ -774,11 +758,7 @@ def gerar_excel(obras: list, pasta: Path, manuais: dict) -> Path:
             row  = [obra['nome'], obra['arq'], tipo, item['codigo'], desc, un]
             ws.append(row)
 
-            # cor da linha
-            if not desc:
-                cor = _COR_STUB
-            else:
-                cor = _CORES.get(tipo, 'FFFFFF')
+            cor  = _COR_STUB if not desc else _CORES.get(tipo, 'FFFFFF')
             fill = PatternFill('solid', fgColor=cor)
 
             linha = ws.max_row
@@ -798,41 +778,98 @@ def gerar_excel(obras: list, pasta: Path, manuais: dict) -> Path:
 #  21.  MAIN
 # ══════════════════════════════════════════════════════════
 
+def _ler_obras_salvas(pasta: Path) -> tuple[list, set]:
+    """Lê o Cofre_Brasul.xlsx já existente e retorna (obras, nomes_arq_ja_processados)."""
+    saida = pasta / NOME_SAIDA
+    if not saida.exists():
+        return [], set()
+    try:
+        wb  = openpyxl.load_workbook(str(saida), data_only=True)
+        ws  = wb.active
+        # Reconstrói lista de obras a partir das linhas salvas
+        from collections import defaultdict, OrderedDict
+        obras_map = OrderedDict()
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if not row or not row[3]:   # sem código
+                continue
+            arq  = str(row[1] or '')
+            nome = str(row[0] or '')
+            if arq not in obras_map:
+                obras_map[arq] = {'nome': nome, 'arq': arq, 'itens': []}
+            obras_map[arq]['itens'].append({
+                'tipo':      str(row[2] or ''),
+                'codigo':    str(row[3] or ''),
+                'descricao': str(row[4] or ''),
+                'unidade':   str(row[5] or ''),
+            })
+        obras     = list(obras_map.values())
+        ja_feitos = set(obras_map.keys())
+        return obras, ja_feitos
+    except Exception as e:
+        print(f"  ⚠  Não foi possível ler o Cofre existente: {e}")
+        return [], set()
+
+
 def main():
     print('\n' + '=' * 60)
-    print('  COFRE BRASUL — Extrator FDE v9.14')
+    print('  COFRE BRASUL — Extrator FDE v9.16')
     print('=' * 60)
 
     PASTA_OUTPUT.mkdir(parents=True, exist_ok=True)
 
-    # carrega base mestra
     por_cod, por_desc = carregar_base(CAMINHO_BASE)
-
-    # preserva preenchimentos manuais do Cofre anterior
     manuais = _carregar_descricoes_manuais(PASTA_OUTPUT)
 
-    # lista PDFs
     if MODO_PASTA:
         pdfs = sorted(PASTA_INPUT.rglob('*.pdf'))
     else:
         pdfs = [CAMINHO_PDF]
 
-    print(f"\n  PDFs encontrados: {len(pdfs)}")
+    # ── CHECKPOINT: ler o que já foi salvo ──────────────────────────────────
+    obras, ja_feitos = _ler_obras_salvas(PASTA_OUTPUT)
 
-    obras = []
-    for pdf_path in pdfs:
+    if ja_feitos:
+        print(f"\n  ✅ Retomando: {len(ja_feitos)} obra(s) já processada(s) no Cofre.")
+        pdfs_pendentes = [p for p in pdfs if p.name not in ja_feitos]
+    else:
+        pdfs_pendentes = pdfs
+
+    total_pdfs    = len(pdfs)
+    total_feitos  = len(ja_feitos)
+    total_pendente = len(pdfs_pendentes)
+
+    print(f"  PDFs encontrados: {total_pdfs}  |  "
+          f"Pendentes: {total_pendente}  |  Já prontos: {total_feitos}")
+
+    if not pdfs_pendentes:
+        print("\n  Todos os PDFs já foram processados. Nada a fazer.")
+        print(f"  Cofre em: {PASTA_OUTPUT / NOME_SAIDA}")
+        return
+
+    # ── LOOP INCREMENTAL: salva após cada PDF ───────────────────────────────
+    for idx, pdf_path in enumerate(pdfs_pendentes, 1):
+        print(f"\n  [{total_feitos + idx}/{total_pdfs}] >> {pdf_path.name}")
         resultado = processar_pdf(pdf_path, por_cod, por_desc)
         if resultado and resultado['itens']:
             obras.append(resultado)
-            print(f"     → {len(resultado['itens'])} itens únicos")
+            n_stubs = sum(1 for i in resultado['itens'] if not i.get('descricao'))
+            print(f"     → {len(resultado['itens'])} itens únicos "
+                  f"({n_stubs} stubs para preenchimento manual)")
+
+            # Salva incrementalmente após cada PDF processado
+            saida = gerar_excel(obras, PASTA_OUTPUT, manuais)
+            print(f"     💾 Salvo ({total_feitos + idx}/{total_pdfs})")
 
     if not obras:
         print("\n  Nenhum item extraído.")
         return
 
     total_itens = sum(len(o['itens']) for o in obras)
-    print(f"\n  Total de obras: {len(obras)}")
-    print(f"  Total de itens: {total_itens}")
+    total_stubs = sum(sum(1 for i in o['itens'] if not i.get('descricao'))
+                      for o in obras)
+    print(f"\n  Total de obras:  {len(obras)}")
+    print(f"  Total de itens:  {total_itens}")
+    print(f"  Stubs (manuais): {total_stubs}")
 
     saida = gerar_excel(obras, PASTA_OUTPUT, manuais)
     print(f"\n  Pronto! Abra: {saida}")
