@@ -1,3 +1,17 @@
+<<<<<<< HEAD
+=======
+"""
+interface.py — COFRE BRASUL v2.0
+=================================
+Sistema de Gestão de Insumos FDE — Brasul Construtora
+Interface profissional integrada ao main.py v7.0
+
+Colunas do Cofre_Brasul.xlsx: Obra | Obra_Arq | Tipo | Cod | Desc | UN
+
+DEPENDÊNCIAS:
+    pip install customtkinter pandas openpyxl pillow
+"""
+>>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
 
 import os, sys, threading, shutil, unicodedata
 import pandas as pd
@@ -81,7 +95,11 @@ class CofreBrasul(ctk.CTk):
         self.caminho_base = os.path.join(self.dir_base, "Base_Mestra_FDE.xlsx")
 
         # Janela
+<<<<<<< HEAD
         self.title("BRASUL — Sistema de Gestão de Insumos Brasul Construtora")
+=======
+        self.title("COFRE BRASUL — Sistema de Gestão de Insumos FDE")
+>>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
         self.geometry("1680x920")
         self.minsize(1280, 780)
         self.configure(fg_color=FUNDO)
@@ -151,16 +169,27 @@ class CofreBrasul(ctk.CTk):
         logo_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         logo_frame.pack(padx=24, pady=(28, 6), fill="x")
 
+<<<<<<< HEAD
         caminho_logo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "LOGOTIPOBRASUL.png")
         if os.path.exists(caminho_logo):
             img_raw = Image.open(caminho_logo)
             self.logo_img = ctk.CTkImage(img_raw, size=(210, 98))
+=======
+        caminho_logo = resource_path("LOGOTIPOBRASUL.png")
+        if os.path.exists(caminho_logo):
+            img_raw = Image.open(caminho_logo)
+            self.logo_img = ctk.CTkImage(img_raw, size=(210, 78))
+>>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
             ctk.CTkLabel(logo_frame, image=self.logo_img, text="").pack(anchor="w")
         else:
             ctk.CTkLabel(logo_frame, text="BRASUL", font=("Segoe UI", 24, "bold"),
                          text_color=PRETO).pack(anchor="w")
 
+<<<<<<< HEAD
         ctk.CTkLabel(self.sidebar, text="",
+=======
+        ctk.CTkLabel(self.sidebar, text="COFRE DE INSUMOS FDE",
+>>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
                      font=ctk.CTkFont(family="Segoe UI", size=9, weight="bold"),
                      text_color=CINZA_TXT).pack(anchor="w", padx=26, pady=(0, 20))
 
@@ -459,9 +488,18 @@ class CofreBrasul(ctk.CTk):
         # ── Filtro tipo ──
         if tipo != "TODOS":
             if tipo == "AMBOS":
+<<<<<<< HEAD
                 df = df[df['Tipo'].str.upper().str.strip() == 'AMBOS']
             else:
                 df = df[df['Tipo'].str.upper().str.strip() == tipo]
+=======
+                df = df[
+                    df['Tipo'].str.contains('ACUMULADO',    na=False) &
+                    df['Tipo'].str.contains('QUANTITATIVA', na=False)
+                ]
+            else:
+                df = df[df['Tipo'].str.contains(tipo, na=False)]
+>>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
 
         self.df_filtro = df
         self._popular_tabela(df)

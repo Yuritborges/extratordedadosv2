@@ -32,7 +32,11 @@ from pathlib import Path
 #  1.  CONFIGURAÇÃO  — ajuste conforme seu ambiente
 # ══════════════════════════════════════════════════════════
 
+<<<<<<< HEAD
 BASE_DIR      = Path(r"C:\Users\yurit\OneDrive\Documentos\EXTRATOR DE DADOS BRASUL 2.0")
+=======
+BASE_DIR      = Path(r"C:\Users\Iury\Documents\PROJETO EXTRATOR DE DADOS VERSÃO 2")
+>>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
 MODO_PASTA    = True                           # True = processa toda a pasta input
 CAMINHO_PDF   = BASE_DIR / "DATA" / "input" / "Ana Luiza Florence Borges I.pdf"
 PASTA_INPUT   = BASE_DIR / "DATA" / "input"
@@ -438,9 +442,15 @@ def _extrair_acumulado_por_valor(img, W: int, H: int, por_cod: dict) -> list:
     """
     H_img = img.size[1]
 
+<<<<<<< HEAD
     def _ocr_faixa(x0, x1, y0=0.15):
         f = img.crop((int(W * x0), int(H_img * y0), int(W * x1), int(H_img * 0.96)))
         f = f.resize((f.width * 3, f.height * 3), Image.LANCZOS)
+=======
+    def _ocr_faixa(x0, x1, y0=0.22):
+        f = img.crop((int(W * x0), int(H_img * y0), int(W * x1), int(H_img * 0.96)))
+        f = f.resize((f.width * 2, f.height * 2), Image.LANCZOS)
+>>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
         f = ImageEnhance.Sharpness(f).enhance(2.0)
         return _ocr(f)
 
@@ -463,9 +473,15 @@ def _extrair_quantitativa_por_valor(img, W: int, H: int, por_cod: dict) -> list:
     """
     H_img = img.size[1]
 
+<<<<<<< HEAD
     def _ocr_faixa(x0, x1, y0=0.15):
         f = img.crop((int(W * x0), int(H_img * y0), int(W * x1), int(H_img * 0.96)))
         f = f.resize((f.width * 3, f.height * 3), Image.LANCZOS)
+=======
+    def _ocr_faixa(x0, x1, y0=0.20):
+        f = img.crop((int(W * x0), int(H_img * y0), int(W * x1), int(H_img * 0.96)))
+        f = f.resize((f.width * 2, f.height * 2), Image.LANCZOS)
+>>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
         f = ImageEnhance.Sharpness(f).enhance(2.0)
         return _ocr(f)
 
@@ -794,7 +810,11 @@ def gerar_excel(obras: list, pasta: Path, manuais: dict) -> Path:
 
 def main():
     print('\n' + '=' * 60)
+<<<<<<< HEAD
     print('  COFRE BRASUL — Extrator FDE v9.13')
+=======
+    print('  COFRE BRASUL — Extrator FDE v9.12')
+>>>>>>> 2df6ca42e534be42f68e50be4935e9edcc35c082
     print('=' * 60)
 
     PASTA_OUTPUT.mkdir(parents=True, exist_ok=True)
