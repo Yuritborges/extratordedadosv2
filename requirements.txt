@@ -1,0 +1,12 @@
+# Core
+pandas>=2.0.0
+openpyxl>=3.1.0
+pdfplumber>=0.10.0
+Pillow>=10.0.0
+pytesseract>=0.3.10
+
+# Interface
+customtkinter>=5.2.0
+
+# Utilidades
+typing-extensions>=4.0.0
